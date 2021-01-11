@@ -13,8 +13,8 @@ var(
 )
 
 type Schema struct {
-	Apis map[string]*Api
-	Models map[string]*Model
+	Apis []*Api
+	Models []*Model
 }
 
 type Model struct {
@@ -29,7 +29,6 @@ type Api struct {
 	PathVariables []Field
 	Body string
 	Response string
-	Subs map[string]*Api
 }
 
 type Field struct {
@@ -50,8 +49,8 @@ func (a *Api) ID() string{
 
 func Parse(input string) (*Schema, error){
 	r := &reader{source: []rune(input)}
-	apis := map[string]*Api{}
-	models := map[string]*Model{}
+	apis := make([]*Api, 0)
+	models := make([]*Model, 0)
 
 	lastDeep := 0
 	status := 0
@@ -84,11 +83,12 @@ func Parse(input string) (*Schema, error){
 				return nil, err
 			}
 			if deep/2 == 1{
-				apis[api.ID()] = api
+				apis = append(apis, api)
 				stack.Push(api)
 			}else{
 				cur := stack.Peek().(*Api)
-				cur.Subs[api.ID()] = api
+				api.Path = cur.Path + api.Path
+				apis = append(apis, api)
 				stack.Push(api)
 			}
 		}else if status == 2{
@@ -102,7 +102,7 @@ func Parse(input string) (*Schema, error){
 				if err != nil{
 					return nil, err
 				}
-				models[model.Name] = model
+				models = append(models, model)
 				stack.Push(model)
 			}else if deep/2 > 1{
 				cur := stack.Peek().(*Model)
@@ -188,7 +188,6 @@ func parseApi(token string) (*Api, error){
 		PathVariables: pathVariables,
 		Body: body,
 		Response: response,
-		Subs: map[string]*Api{},
 	}, nil
 }
 
