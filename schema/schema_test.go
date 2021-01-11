@@ -2,6 +2,7 @@ package schema
 
 import (
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -9,7 +10,7 @@ const api1 = `api
   api/v1/users
     get ?page=uint&size=uint [userOutput]
     get /uid=uint userOutput
-    get ?postUsersInput userOutput
+    post ?postUsersInput userOutput
 
 model
   postUsersInput{age uint16, name string}
@@ -20,8 +21,9 @@ model
 `
 
 func TestParse(t *testing.T) {
-	schema := Parse(api1)
+	schema, err := Parse(api1)
+	assert.Equal(t, err, nil)
 	bs, err := json.Marshal(schema)
-	t.Log(err)
+	assert.Equal(t, err, nil)
 	t.Log(string(bs))
 }

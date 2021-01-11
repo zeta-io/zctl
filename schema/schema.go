@@ -2,9 +2,14 @@ package schema
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/zeta-io/zctl/util/stack"
 	"strings"
+)
+
+var(
+	ErrSchemaFormatError = errors.New("schema format error %s")
 )
 
 type Schema struct {
@@ -21,8 +26,9 @@ type Api struct {
 	Path string
 	Method string
 	Queries []Field
+	PathVariables []Field
 	Body string
-	Return string
+	Response string
 	Subs map[string]*Api
 }
 
@@ -38,7 +44,11 @@ type reader struct {
 	deep int
 }
 
-func Parse(input string) *Schema{
+func (a *Api) ID() string{
+	return a.Method + ":" + a.Path
+}
+
+func Parse(input string) (*Schema, error){
 	r := &reader{source: []rune(input)}
 	apis := map[string]*Api{}
 	models := map[string]*Model{}
@@ -60,7 +70,7 @@ func Parse(input string) *Schema{
 		}
 		dif := (deep - lastDeep) / 2
 		if dif > 1{
-			panic("format err: 002")
+			return nil, ErrSchemaFormatError
 		}
 
 		if status == 1{
@@ -69,13 +79,16 @@ func Parse(input string) *Schema{
 					stack.Pop()
 				}
 			}
-			api := parseApi(token)
+			api, err := parseApi(token)
+			if err != nil{
+				return nil, err
+			}
 			if deep/2 == 1{
-				apis[api.Path] = api
+				apis[api.ID()] = api
 				stack.Push(api)
 			}else{
 				cur := stack.Peek().(*Api)
-				cur.Subs[api.Path] = api
+				cur.Subs[api.ID()] = api
 				stack.Push(api)
 			}
 		}else if status == 2{
@@ -85,13 +98,19 @@ func Parse(input string) *Schema{
 						stack.Pop()
 					}
 				}
-
-				model := parseModel(token)
+				model, err := parseModel(token)
+				if err != nil{
+					return nil, err
+				}
 				models[model.Name] = model
 				stack.Push(model)
 			}else if deep/2 > 1{
 				cur := stack.Peek().(*Model)
-				cur.Fields = append(cur.Fields, parseField(token))
+				field, err := parseField(token)
+				if err != nil{
+					return nil, err
+				}
+				cur.Fields = append(cur.Fields, field)
 			}
 		}
 		lastDeep = deep
@@ -99,49 +118,100 @@ func Parse(input string) *Schema{
 	return &Schema{
 		Apis: apis,
 		Models: models,
-	}
+	}, nil
 }
 
-func parseApi(token string) *Api{
+func parseApi(token string) (*Api, error){
 	arr := strings.Split(token, " ")
 	l := len(arr)
-	if l == 1{
-		return &Api{
-			Path: arr[0],
-			Subs: map[string]*Api{},
+
+	method := "any"
+	path := ""
+	response := ""
+	switch l {
+	case 1: path = arr[0]
+	case 2:
+		method = arr[0]
+		path = arr[1]
+	case 3:
+		method = arr[0]
+		path = arr[1]
+		response = arr[2]
+	default:
+		return nil, fmt.Errorf("not support api definition: %s", token)
+	}
+
+	var queries []Field
+	var body string
+	if i := strings.Index(path, "?"); i > -1 {
+		parameters := strings.Split(path[i + 1:], "&")
+		for _, parameter := range parameters{
+			elements := strings.Split(parameter, "=")
+			if len(elements) == 1 && body == ""{
+				body = elements[0]
+			}else if len(elements) == 2{
+				queries = append(queries, Field{
+					Name: elements[0],
+					Type: elements[1],
+				})
+			}
 		}
-	}else if l == 2{
-		return &Api{
-			Path: arr[1],
-			Method: arr[0],
-			Subs: map[string]*Api{},
+		path = path[:i]
+	}
+
+	var pathVariables []Field
+	pathSegments := strings.Split(path, "/")
+	path = ""
+	for _, segment := range pathSegments{
+		if segment == ""{
+			continue
 		}
-	}else if l == 3{
-		return &Api{
-			Path: arr[1],
-			Method: arr[0],
-			Return: arr[2],
-			Subs: map[string]*Api{},
+		if i := strings.Index(segment, "="); i > -1{
+			elements := strings.Split(segment, "=")
+			pathVariables = append(pathVariables, Field{
+				Name: elements[0],
+				Type: elements[1],
+			})
+			path += "/" + fmt.Sprintf("{%d}", len(pathVariables) - 1)
+		}else{
+			path += "/" + segment
 		}
 	}
-	panic(fmt.Sprintf("not support api parse: %s", token))
+	if path == ""{
+		path = "/"
+	}
+
+	return &Api{
+		Path: path,
+		Method: method,
+		Queries: queries,
+		PathVariables: pathVariables,
+		Body: body,
+		Response: response,
+		Subs: map[string]*Api{},
+	}, nil
 }
 
-func parseModel(token string) *Model{
+func parsePathApi(path string) ([]Field, error){
+	return nil, nil
+}
+
+func parseModel(token string) (*Model, error){
 	if strings.Contains(token, "{") {
 		arr := strings.Split(token, "{")
+		fields, err := parseFieldInline(strings.ReplaceAll(arr[1], "}", ""))
 		return &Model{
 			Name: arr[0],
-			Fields: parseFieldInline(strings.ReplaceAll(arr[1], "}", "")),
-		}
+			Fields: fields,
+		}, err
 	}else{
 		return &Model{
 			Name: token,
-		}
+		}, nil
 	}
 }
 
-func parseFieldInline(token string) []Field{
+func parseFieldInline(token string) ([]Field, error){
 	arr := strings.Split(token, ",")
 	fields := make([]Field, 0)
 	for _, elem := range arr{
@@ -151,15 +221,15 @@ func parseFieldInline(token string) []Field{
 			Type: targets[1],
 		})
 	}
-	return fields
+	return fields, nil
 }
 
-func parseField(token string) Field{
+func parseField(token string) (Field, error){
 	arr := strings.Split(token, " ")
 	return Field{
 		Name: arr[0],
 		Type: arr[1],
-	}
+	}, nil
 }
 
 func (r *reader) hasNext() bool{
