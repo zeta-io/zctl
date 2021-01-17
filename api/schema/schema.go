@@ -2,52 +2,51 @@ package schema
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
+	"github.com/zeta-io/zctl/api/types"
+	"github.com/zeta-io/zctl/errors"
 	"github.com/zeta-io/zctl/util/stack"
+	strs "github.com/zeta-io/zctl/util/strings"
 	"strings"
 )
 
-var(
-	ErrSchemaFormatError = errors.New("schema format error %s")
-)
-
 type Schema struct {
-	Apis []*Api
+	Apis   []*Api
 	Models []*Model
 }
 
 type Model struct {
-	Name string
-	Fields []Field
+	Name   string
+	Fields []*Field
 }
 
 type Api struct {
-	Path string
-	Method string
-	Queries []Field
-	PathVariables []Field
-	Body string
-	Response string
+	Path          string
+	Func		  string
+	Method        string
+	Queries       []*Field
+	PathVariables []*Field
+	Body          string
+	Response      string
 }
 
 type Field struct {
 	Name string
-	Type string
+	Type types.Type
 }
 
 type reader struct {
 	source []rune
-	index int
+	index  int
 	buffer bytes.Buffer
-	deep int
+	deep   int
 }
 
-func (a *Api) ID() string{
+func (a *Api) ID() string {
 	return a.Method + ":" + a.Path
 }
 
-func Parse(input string) (*Schema, error){
+func Parse(input string) (*Schema, error) {
 	r := &reader{source: []rune(input)}
 	apis := make([]*Api, 0)
 	models := make([]*Model, 0)
@@ -55,12 +54,12 @@ func Parse(input string) (*Schema, error){
 	lastDeep := 0
 	status := 0
 	stack := stack.New()
-	for r.hasNext(){
+	for r.hasNext() {
 		token, deep := r.next()
-		if deep == 0{
-			if token == "api"{
+		if deep == 0 {
+			if token == "api" {
 				status = 1
-			}else if token == "model"{
+			} else if token == "model" {
 				status = 2
 			}
 			stack.Init()
@@ -68,46 +67,46 @@ func Parse(input string) (*Schema, error){
 			continue
 		}
 		dif := (deep - lastDeep) / 2
-		if dif > 1{
-			return nil, ErrSchemaFormatError
+		if dif > 1 {
+			return nil, errors.ErrSchemaFormatError
 		}
 
-		if status == 1{
-			if dif <= 0{
-				for i := 0; i <= -dif; i ++{
+		if status == 1 {
+			if dif <= 0 {
+				for i := 0; i <= -dif; i++ {
 					stack.Pop()
 				}
 			}
 			api, err := parseApi(token)
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
-			if deep/2 == 1{
+			if deep/2 == 1 {
 				apis = append(apis, api)
 				stack.Push(api)
-			}else{
+			} else {
 				cur := stack.Peek().(*Api)
 				api.Path = cur.Path + api.Path
 				apis = append(apis, api)
 				stack.Push(api)
 			}
-		}else if status == 2{
-			if deep/2 == 1{
-				if dif <= 0{
-					for i := 0; i <= -dif; i ++{
+		} else if status == 2 {
+			if deep/2 == 1 {
+				if dif <= 0 {
+					for i := 0; i <= -dif; i++ {
 						stack.Pop()
 					}
 				}
 				model, err := parseModel(token)
-				if err != nil{
+				if err != nil {
 					return nil, err
 				}
 				models = append(models, model)
 				stack.Push(model)
-			}else if deep/2 > 1{
+			} else if deep/2 > 1 {
 				cur := stack.Peek().(*Model)
 				field, err := parseField(token)
-				if err != nil{
+				if err != nil {
 					return nil, err
 				}
 				cur.Fields = append(cur.Fields, field)
@@ -116,12 +115,12 @@ func Parse(input string) (*Schema, error){
 		lastDeep = deep
 	}
 	return &Schema{
-		Apis: apis,
+		Apis:   apis,
 		Models: models,
 	}, nil
 }
 
-func parseApi(token string) (*Api, error){
+func parseApi(token string) (*Api, error) {
 	arr := strings.Split(token, " ")
 	l := len(arr)
 
@@ -129,7 +128,8 @@ func parseApi(token string) (*Api, error){
 	path := ""
 	response := ""
 	switch l {
-	case 1: path = arr[0]
+	case 1:
+		path = arr[0]
 	case 2:
 		method = arr[0]
 		path = arr[1]
@@ -141,122 +141,137 @@ func parseApi(token string) (*Api, error){
 		return nil, fmt.Errorf("not support api definition: %s", token)
 	}
 
-	var queries []Field
+	var queries []*Field
 	var body string
 	if i := strings.Index(path, "?"); i > -1 {
-		parameters := strings.Split(path[i + 1:], "&")
-		for _, parameter := range parameters{
+		parameters := strings.Split(path[i+1:], "&")
+		for _, parameter := range parameters {
 			elements := strings.Split(parameter, "=")
-			if len(elements) == 1 && body == ""{
+			if len(elements) == 1 && body == "" {
 				body = elements[0]
-			}else if len(elements) == 2{
-				queries = append(queries, Field{
+			} else if len(elements) == 2 {
+				t, err := types.Parse(elements[1])
+				if err != nil {
+					return nil, err
+				}
+				queries = append(queries, &Field{
 					Name: elements[0],
-					Type: elements[1],
+					Type: t,
 				})
 			}
 		}
 		path = path[:i]
 	}
 
-	var pathVariables []Field
+	var pathVariables []*Field
 	pathSegments := strings.Split(path, "/")
 	path = ""
-	for _, segment := range pathSegments{
-		if segment == ""{
+	for _, segment := range pathSegments {
+		if segment == "" {
 			continue
 		}
-		if i := strings.Index(segment, "="); i > -1{
+		if i := strings.Index(segment, "="); i > -1 {
 			elements := strings.Split(segment, "=")
-			pathVariables = append(pathVariables, Field{
+			t, err := types.Parse(elements[1])
+			if err != nil {
+				return nil, err
+			}
+			pathVariables = append(pathVariables, &Field{
 				Name: elements[0],
-				Type: elements[1],
+				Type: t,
 			})
-			path += "/" + fmt.Sprintf("{%d}", len(pathVariables) - 1)
-		}else{
+			path += "/" + fmt.Sprintf("{%d}", len(pathVariables)-1)
+		} else {
 			path += "/" + segment
 		}
 	}
-	if path == ""{
+	if path == "" {
 		path = "/"
 	}
-
+	funcName := strs.CamelCase(path, '/')
+	funcName = strs.Capitalize(method) + funcName
+	funcName = strings.ReplaceAll(strings.ReplaceAll(funcName, "{", "_"), "}", "")
 	return &Api{
-		Path: path,
-		Method: method,
-		Queries: queries,
+		Path:          path,
+		Func: 		   funcName,
+		Method:        method,
+		Queries:       queries,
 		PathVariables: pathVariables,
-		Body: body,
-		Response: response,
+		Body:          body,
+		Response:      response,
 	}, nil
 }
 
-func parsePathApi(path string) ([]Field, error){
-	return nil, nil
-}
-
-func parseModel(token string) (*Model, error){
+func parseModel(token string) (*Model, error) {
 	if strings.Contains(token, "{") {
 		arr := strings.Split(token, "{")
 		fields, err := parseFieldInline(strings.ReplaceAll(arr[1], "}", ""))
 		return &Model{
-			Name: arr[0],
+			Name:   arr[0],
 			Fields: fields,
 		}, err
-	}else{
+	} else {
 		return &Model{
 			Name: token,
 		}, nil
 	}
 }
 
-func parseFieldInline(token string) ([]Field, error){
+func parseFieldInline(token string) ([]*Field, error) {
 	arr := strings.Split(token, ",")
-	fields := make([]Field, 0)
-	for _, elem := range arr{
+	fields := make([]*Field, 0)
+	for _, elem := range arr {
 		targets := strings.Split(strings.TrimSpace(elem), " ")
-		fields = append(fields, Field{
+		t, err := types.Parse(targets[1])
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, &Field{
 			Name: targets[0],
-			Type: targets[1],
+			Type: t,
 		})
 	}
 	return fields, nil
 }
 
-func parseField(token string) (Field, error){
+func parseField(token string) (*Field, error) {
 	arr := strings.Split(token, " ")
-	return Field{
+	t, err := types.Parse(arr[1])
+	if err != nil {
+		return nil, err
+	}
+	return &Field{
 		Name: arr[0],
-		Type: arr[1],
+		Type: t,
 	}, nil
 }
 
-func (r *reader) hasNext() bool{
-	return r.index < len(r.source) - 1
+func (r *reader) hasNext() bool {
+	return r.index < len(r.source)-1
 }
 
-func (r *reader) next() (string, int){
+func (r *reader) next() (string, int) {
 	ready := false
 	deep := 0
 	r.foreach(func(c rune) bool {
-		if c == '\n'{
+		if c == '\n' {
 			return false
 		}
-		if ! ready{
-			if c == ' '{
+		if !ready {
+			if c == ' ' {
 				deep += 1
-			}else if c == '\t'{
+			} else if c == '\t' {
 				deep += 2
-			}else{
+			} else {
 				ready = true
 			}
 		}
-		if ready{
+		if ready {
 			r.buffer.WriteRune(c)
 		}
 		return true
 	})
-	if deep % 2 == 1{
+	if deep%2 == 1 {
 		panic("format err: 001")
 	}
 	token := r.buffer.String()
@@ -264,13 +279,12 @@ func (r *reader) next() (string, int){
 	return token, deep
 }
 
-func (r *reader) foreach(handle func(c rune) bool){
-	for ; r.index < len(r.source); {
-		isBreak := ! handle(r.source[r.index])
-		r.index ++
+func (r *reader) foreach(handle func(c rune) bool) {
+	for r.index < len(r.source) {
+		isBreak := !handle(r.source[r.index])
+		r.index++
 		if isBreak {
 			break
 		}
 	}
 }
-

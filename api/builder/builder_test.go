@@ -23,6 +23,7 @@ model
     id uint64
     age uint16
     name string
+    time time
 `
 
 const temp1 = `api list
@@ -30,7 +31,7 @@ const temp1 = `api list
 	{{ $value.Path}}
 {{ end }}`
 
-func TestTemplate(t *testing.T){
+func TestTemplate(t *testing.T) {
 	s, err := schema.Parse(api1)
 	assert.Equal(t, err, nil)
 	bs, err := json.Marshal(s)
@@ -46,17 +47,18 @@ func TestTemplate(t *testing.T){
 	t.Log("end")
 }
 
-func TestTemplatesModelModels(t *testing.T){
+func TestTemplatesModelModels(t *testing.T) {
 	s, err := schema.Parse(api1)
 	assert.Equal(t, err, nil)
 	_, err = json.Marshal(s)
 	assert.Equal(t, err, nil)
 
-	b, err := ioutil.ReadFile("../sample/templates/model/models.tpl")
+	b, err := ioutil.ReadFile("../sample/input/model/models.tpl")
 	assert.Equal(t, err, nil)
 
 	temp, err := template.New("").Funcs(template.FuncMap{
 		"capitalize": function.Capitalize,
+		"goType":     function.GoType,
 	}).Parse(string(b))
 	assert.Equal(t, err, nil)
 
@@ -66,4 +68,17 @@ func TestTemplatesModelModels(t *testing.T){
 	assert.Equal(t, err, nil)
 	t.Log(buffer.String())
 	t.Log("end")
+}
+
+func TestBuilder_Generate(t *testing.T) {
+	s, err := schema.Parse(api1)
+	assert.Equal(t, err, nil)
+	_, err = json.Marshal(s)
+	assert.Equal(t, err, nil)
+
+	builder, err := New(s, "D:\\workspace-zeta\\zctl\\api\\sample\\input", "D:\\workspace-zeta\\zctl\\api\\sample\\output")
+	assert.Equal(t, err, nil)
+
+	err = builder.Generate()
+	assert.Equal(t, err, nil)
 }

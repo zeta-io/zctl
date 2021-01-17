@@ -1,5 +1,5 @@
 package api
 
 {{ range $key, $value := .Apis }}
-	{{ $value.Path}}
-{{ end }}`
+	func {{ $value.Func }}(){}
+{{ end }}

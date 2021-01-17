@@ -1,11 +1,14 @@
 package function
 
-import "strings"
+import (
+	"github.com/zeta-io/zctl/api/types"
+	"github.com/zeta-io/zctl/util/strings"
+)
 
-func Capitalize(str string) string{
-	runes := []rune(str)
-	if len(runes) > 0{
-		runes[0] = []rune(strings.ToUpper(string(runes[0:1])))[0]
-	}
-	return string(runes)
+func Capitalize(str string) string {
+	return strings.Capitalize(str)
+}
+
+func GoType(t types.Type) string {
+	return types.GoTypes[t]
 }
