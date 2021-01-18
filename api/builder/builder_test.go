@@ -3,6 +3,7 @@ package builder
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeta-io/zctl/api/function"
 	"github.com/zeta-io/zctl/api/schema"
@@ -13,7 +14,7 @@ import (
 
 const api1 = `api
   api/v1/users
-    get ?page=uint&size=uint [userOutput]
+    get ?page=uint&size=uint userOutput
     get /uid=uint userOutput
     post ?postUsersInput userOutput
 
@@ -76,9 +77,10 @@ func TestBuilder_Generate(t *testing.T) {
 	_, err = json.Marshal(s)
 	assert.Equal(t, err, nil)
 
-	builder, err := New(s, "D:\\workspace-zeta\\zctl\\api\\sample\\input", "D:\\workspace-zeta\\zctl\\api\\sample\\output")
+	builder, err := New(s, "F:\\workspace-zeta\\zctl\\api\\sample\\input", "F:\\workspace-zeta\\zctl\\api\\sample\\output")
 	assert.Equal(t, err, nil)
 
 	err = builder.Generate()
+	fmt.Println(err)
 	assert.Equal(t, err, nil)
 }

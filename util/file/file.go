@@ -20,7 +20,7 @@ func IsExist(path string) (bool, error) {
 	return false, err
 }
 
-func ReadTpls(path string) ([]string, error) {
+func GetTpls(path string) ([]string, error) {
 	tpls := make([]string, 0)
 	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() && strings.HasSuffix(info.Name(), "tpl") {
@@ -32,6 +32,14 @@ func ReadTpls(path string) ([]string, error) {
 		return nil, err
 	}
 	return tpls, nil
+}
+
+func GetDir(path string) (string, error){
+	index := strings.LastIndex(path, string(os.PathSeparator))
+	if index == -1 {
+		return "", errors.ErrOutputIsNotFile
+	}
+	return path[0:index], nil
 }
 
 func Read(path string) ([]byte, error) {

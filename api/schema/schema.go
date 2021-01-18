@@ -22,7 +22,6 @@ type Model struct {
 
 type Api struct {
 	Path          string
-	Func		  string
 	Method        string
 	Queries       []*Field
 	PathVariables []*Field
@@ -45,6 +44,12 @@ type reader struct {
 func (a *Api) ID() string {
 	return a.Method + ":" + a.Path
 }
+func (a *Api) Func() string {
+	funcName := strs.CamelCase(a.Path, '/')
+	funcName = strs.Capitalize(a.Method) + funcName
+	return strings.ReplaceAll(strings.ReplaceAll(funcName, "{", "_"), "}", "")
+}
+
 
 func Parse(input string) (*Schema, error) {
 	r := &reader{source: []rune(input)}
@@ -82,12 +87,16 @@ func Parse(input string) (*Schema, error) {
 				return nil, err
 			}
 			if deep/2 == 1 {
-				apis = append(apis, api)
+				if api.Method != ""{
+					apis = append(apis, api)
+				}
 				stack.Push(api)
 			} else {
 				cur := stack.Peek().(*Api)
-				api.Path = cur.Path + api.Path
-				apis = append(apis, api)
+				if api.Method != ""{
+					api.Path = cur.Path + api.Path
+					apis = append(apis, api)
+				}
 				stack.Push(api)
 			}
 		} else if status == 2 {
@@ -124,7 +133,7 @@ func parseApi(token string) (*Api, error) {
 	arr := strings.Split(token, " ")
 	l := len(arr)
 
-	method := "any"
+	method := ""
 	path := ""
 	response := ""
 	switch l {
@@ -188,12 +197,8 @@ func parseApi(token string) (*Api, error) {
 	if path == "" {
 		path = "/"
 	}
-	funcName := strs.CamelCase(path, '/')
-	funcName = strs.Capitalize(method) + funcName
-	funcName = strings.ReplaceAll(strings.ReplaceAll(funcName, "{", "_"), "}", "")
 	return &Api{
 		Path:          path,
-		Func: 		   funcName,
 		Method:        method,
 		Queries:       queries,
 		PathVariables: pathVariables,
