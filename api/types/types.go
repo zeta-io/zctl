@@ -20,6 +20,9 @@ const (
 	Float64 Type = "float64"
 	Time    Type = "time"
 	String  Type = "string"
+	Struct  Type = "struct"
+	Array   Type = "array"
+	Map     Type = "map"
 )
 
 var GoTypes = map[Type]string{

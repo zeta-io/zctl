@@ -25,13 +25,20 @@ type Api struct {
 	Method        string
 	Queries       []*Field
 	PathVariables []*Field
-	Body          string
-	Response      string
+	Body          *Type
+	Response      *Type
 }
 
 type Field struct {
 	Name string
-	Type types.Type
+	Type *Type
+}
+
+type Type struct {
+	Name string
+	Key *types.Type
+	Value *types.Type
+	Type *types.Type
 }
 
 type reader struct {
@@ -44,12 +51,12 @@ type reader struct {
 func (a *Api) ID() string {
 	return a.Method + ":" + a.Path
 }
+
 func (a *Api) Func() string {
 	funcName := strs.CamelCase(a.Path, '/')
 	funcName = strs.Capitalize(a.Method) + funcName
 	return strings.ReplaceAll(strings.ReplaceAll(funcName, "{", "_"), "}", "")
 }
-
 
 func Parse(input string) (*Schema, error) {
 	r := &reader{source: []rune(input)}
@@ -159,7 +166,7 @@ func parseApi(token string) (*Api, error) {
 			if len(elements) == 1 && body == "" {
 				body = elements[0]
 			} else if len(elements) == 2 {
-				t, err := types.Parse(elements[1])
+				t, err := parseType(elements[1])
 				if err != nil {
 					return nil, err
 				}
@@ -181,7 +188,7 @@ func parseApi(token string) (*Api, error) {
 		}
 		if i := strings.Index(segment, "="); i > -1 {
 			elements := strings.Split(segment, "=")
-			t, err := types.Parse(elements[1])
+			t, err := parseType(elements[1])
 			if err != nil {
 				return nil, err
 			}
@@ -227,7 +234,7 @@ func parseFieldInline(token string) ([]*Field, error) {
 	fields := make([]*Field, 0)
 	for _, elem := range arr {
 		targets := strings.Split(strings.TrimSpace(elem), " ")
-		t, err := types.Parse(targets[1])
+		t, err := parseType(targets[1])
 		if err != nil {
 			return nil, err
 		}
@@ -239,9 +246,13 @@ func parseFieldInline(token string) ([]*Field, error) {
 	return fields, nil
 }
 
+func parseType(token string) (*Type, error) {
+	return nil, nil
+}
+
 func parseField(token string) (*Field, error) {
 	arr := strings.Split(token, " ")
-	t, err := types.Parse(arr[1])
+	t, err := parseType(arr[1])
 	if err != nil {
 		return nil, err
 	}
