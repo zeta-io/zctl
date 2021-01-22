@@ -27,3 +27,12 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, err, nil)
 	t.Log(string(bs))
 }
+
+func TestParseType(t *testing.T) {
+	token := "map[string]string"
+	ty, err := ParseType(token)
+	assert.Equal(t, err, nil)
+
+	str, _ := json.Marshal(ty)
+	t.Log(string(str))
+}

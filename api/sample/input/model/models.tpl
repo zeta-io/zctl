@@ -1,23 +1,23 @@
 package model
 
 {{ range $index, $model := .schema.Models }}
-	type {{capitalize $model.Name}} struct {
-    {{ range $index, $field := $model.Fields }}
-        {{- capitalize $field.Name }} {{ goType $field.Type}}
+	type {{modelName $model}} struct {
+    {{ range $key, $value := modelFields $model }}
+        {{- $key }} {{ $value}}
     {{ end }}
 	}
 {{ end }}
 
-{{ range $key, $value := .schema.Apis }}
-	type {{ $value.Func }}Req struct {
-        {{ range $field := $value.Queries }}
-            {{- capitalize $field.Name }} {{ goType $field.Type}} `json:"{{ $field.Name }}" param:"query,{{ $field.Name }}"`
+{{ range $index, $api := .schema.Apis }}
+	type {{ apiFunc $api }}Req struct {
+        {{ range $key, $value := apiQueries $api }}
+            {{- capitalize $key }} {{ $value }} `json:"{{ $key }}" param:"query,{{ $key }}"`
         {{ end }}
-        {{ range $field := $value.PathVariables }}
-            {{- capitalize $field.Name }} {{ goType $field.Type}} `json:"{{ $field.Name }}" param:"query,{{ $field.Name }}"`
+        {{ range $key, $value := apiPathVariables $api }}
+            {{- capitalize $key }} {{ $value }} `json:"{{ $key }}" param:"path,{{ $key }}"`
         {{ end }}
-        {{ if ne $value.Body ""}}
-            Body {{ capitalize $value.Body }} `param:"body"`
+        {{ if ne $api.Body ""}}
+            Body {{ capitalize apiBody $api }} `param:"body"`
         {{ end }}
 	}
 {{ end }}

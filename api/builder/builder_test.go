@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/zeta-io/zctl/api/function"
+	"github.com/zeta-io/zctl/api/interperter"
 	"github.com/zeta-io/zctl/api/schema"
 	"io/ioutil"
 	"testing"
@@ -21,7 +22,7 @@ const api1 = `api
 model
   postUsersInput{age uint16, name string}
   userOutput
-    id uint64
+    id *uint64
     age uint16
     name string
     time time
@@ -59,7 +60,6 @@ func TestTemplatesModelModels(t *testing.T) {
 
 	temp, err := template.New("").Funcs(template.FuncMap{
 		"capitalize": function.Capitalize,
-		"goType":     function.GoType,
 	}).Parse(string(b))
 	assert.Equal(t, err, nil)
 
@@ -77,7 +77,7 @@ func TestBuilder_Generate(t *testing.T) {
 	_, err = json.Marshal(s)
 	assert.Equal(t, err, nil)
 
-	builder, err := New(s, "F:\\workspace-zeta\\zctl\\api\\sample\\input", "F:\\workspace-zeta\\zctl\\api\\sample\\output")
+	builder, err := New(s, interperter.NewZeta(), "F:\\workspace-zeta\\zctl\\api\\sample\\input", "F:\\workspace-zeta\\zctl\\api\\sample\\output")
 	assert.Equal(t, err, nil)
 
 	err = builder.Generate()

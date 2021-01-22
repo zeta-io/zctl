@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/zeta-io/zctl/api/function"
 	"github.com/zeta-io/zctl/api/imports"
+	"github.com/zeta-io/zctl/api/interperter"
 	"github.com/zeta-io/zctl/api/schema"
 	"github.com/zeta-io/zctl/errors"
 	"github.com/zeta-io/zctl/util/file"
@@ -15,9 +16,10 @@ type Builder struct {
 	input  string
 	output string
 	schema *schema.Schema
+	i interperter.Interpreter
 }
 
-func New(s *schema.Schema, input, output string) (*Builder, error) {
+func New(s *schema.Schema, i interperter.Interpreter, input, output string) (*Builder, error) {
 	exist, err := file.IsExist(input)
 	if err != nil {
 		return nil, err
@@ -29,6 +31,7 @@ func New(s *schema.Schema, input, output string) (*Builder, error) {
 		schema: s,
 		input:  input,
 		output: output,
+		i: i,
 	}, nil
 }
 
@@ -81,7 +84,13 @@ func (b *Builder) Generate() error {
 func (b *Builder) render(source []byte, data interface{}) ([]byte, error) {
 	temp, err := template.New("").Funcs(template.FuncMap{
 		"capitalize": function.Capitalize,
-		"goType":     function.GoType,
+		"apiBody": b.i.ApiBody,
+		"apiFunc": b.i.ApiFunc,
+		"apiPathVariables": b.i.ApiPathVariables,
+		"apiQueries": b.i.ApiQueries,
+		"apiResponse": b.i.ApiResponse,
+		"modelName": b.i.ModelName,
+		"modelFields": b.i.ModelFields,
 	}).Parse(string(source))
 	if err != nil {
 		return nil, err

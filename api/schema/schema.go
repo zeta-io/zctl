@@ -6,9 +6,10 @@ import (
 	"github.com/zeta-io/zctl/api/types"
 	"github.com/zeta-io/zctl/errors"
 	"github.com/zeta-io/zctl/util/stack"
-	strs "github.com/zeta-io/zctl/util/strings"
 	"strings"
 )
+
+
 
 type Schema struct {
 	Apis   []*Api
@@ -36,9 +37,10 @@ type Field struct {
 
 type Type struct {
 	Name string
-	Key *types.Type
-	Value *types.Type
-	Type *types.Type
+	Key *Type
+	Value *Type
+	Type types.Type
+	Required bool
 }
 
 type reader struct {
@@ -50,12 +52,6 @@ type reader struct {
 
 func (a *Api) ID() string {
 	return a.Method + ":" + a.Path
-}
-
-func (a *Api) Func() string {
-	funcName := strs.CamelCase(a.Path, '/')
-	funcName = strs.Capitalize(a.Method) + funcName
-	return strings.ReplaceAll(strings.ReplaceAll(funcName, "{", "_"), "}", "")
 }
 
 func Parse(input string) (*Schema, error) {
@@ -142,7 +138,7 @@ func parseApi(token string) (*Api, error) {
 
 	method := ""
 	path := ""
-	response := ""
+	var response *Type
 	switch l {
 	case 1:
 		path = arr[0]
@@ -152,21 +148,30 @@ func parseApi(token string) (*Api, error) {
 	case 3:
 		method = arr[0]
 		path = arr[1]
-		response = arr[2]
+
+		t, err := ParseType(arr[2])
+		if err != nil {
+			return nil, err
+		}
+		response = t
 	default:
 		return nil, fmt.Errorf("not support api definition: %s", token)
 	}
 
 	var queries []*Field
-	var body string
+	var body *Type
 	if i := strings.Index(path, "?"); i > -1 {
 		parameters := strings.Split(path[i+1:], "&")
 		for _, parameter := range parameters {
 			elements := strings.Split(parameter, "=")
-			if len(elements) == 1 && body == "" {
-				body = elements[0]
+			if len(elements) == 1 && body == nil {
+				t, err := ParseType(elements[0])
+				if err != nil {
+					return nil, err
+				}
+				body = t
 			} else if len(elements) == 2 {
-				t, err := parseType(elements[1])
+				t, err := ParseType(elements[1])
 				if err != nil {
 					return nil, err
 				}
@@ -188,7 +193,7 @@ func parseApi(token string) (*Api, error) {
 		}
 		if i := strings.Index(segment, "="); i > -1 {
 			elements := strings.Split(segment, "=")
-			t, err := parseType(elements[1])
+			t, err := ParseType(elements[1])
 			if err != nil {
 				return nil, err
 			}
@@ -234,7 +239,7 @@ func parseFieldInline(token string) ([]*Field, error) {
 	fields := make([]*Field, 0)
 	for _, elem := range arr {
 		targets := strings.Split(strings.TrimSpace(elem), " ")
-		t, err := parseType(targets[1])
+		t, err := ParseType(targets[1])
 		if err != nil {
 			return nil, err
 		}
@@ -246,13 +251,75 @@ func parseFieldInline(token string) ([]*Field, error) {
 	return fields, nil
 }
 
-func parseType(token string) (*Type, error) {
-	return nil, nil
+// ParseType to parse type form token:
+func ParseType(token string) (*Type, error) {
+	t := &Type{
+		Required: true,
+	}
+	if token[0] == '*'{
+		t.Required = false
+	}
+	buff := bytes.Buffer{}
+	stat := 0
+	sign := 0
+	for _, s := range token{
+		switch s {
+		case '[':
+			if stat == 0{
+				if buff.String() == "map"{
+					t.Type = types.Map
+					stat = 1
+				}else{
+					t.Type = types.Array
+					stat = 3
+				}
+				buff.Reset()
+			}else if stat == 1{
+				sign ++
+			}else{
+				buff.WriteRune(s)
+			}
+		case ']':
+			if stat == 1{
+				var err error
+				t.Key, err = ParseType(buff.String())
+				if err != nil{
+					return nil, err
+				}
+				stat = 2
+				buff.Reset()
+			}else if stat == 3{
+				if buff.Len() > 0{
+					return nil, errors.ErrTypesFormat
+				}
+				stat = 2
+			}else{
+				buff.WriteRune(s)
+			}
+		default:
+			buff.WriteRune(s)
+		}
+	}
+	if t.Type == types.Map || t.Type == types.Array{
+		var err error
+		t.Value, err = ParseType(buff.String())
+		if err != nil{
+			return nil, err
+		}
+	}else if token == "any"{
+		t.Type = types.Any
+	}else if ty, err := types.ParsePrimitive(token); err != nil{
+		t.Type = ty
+	}else{
+		t.Type = types.Struct
+		t.Name = token
+	}
+	return t, nil
 }
 
 func parseField(token string) (*Field, error) {
 	arr := strings.Split(token, " ")
-	t, err := parseType(arr[1])
+	t, err := ParseType(arr[1])
 	if err != nil {
 		return nil, err
 	}
