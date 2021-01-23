@@ -40,7 +40,7 @@ var primitiveTypes = map[string]Type{
 	"bool":Bool,
 	"float32":Float32,
 	"float64":Float64,
-	"time.Time":Time,
+	"time":Time,
 	"string":String,
 }
 

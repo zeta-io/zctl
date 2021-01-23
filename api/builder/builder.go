@@ -85,6 +85,7 @@ func (b *Builder) render(source []byte, data interface{}) ([]byte, error) {
 	temp, err := template.New("").Funcs(template.FuncMap{
 		"capitalize": function.Capitalize,
 		"apiBody": b.i.ApiBody,
+		"apiPath": b.i.ApiPath,
 		"apiFunc": b.i.ApiFunc,
 		"apiPathVariables": b.i.ApiPathVariables,
 		"apiQueries": b.i.ApiQueries,

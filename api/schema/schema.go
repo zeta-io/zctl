@@ -258,6 +258,7 @@ func ParseType(token string) (*Type, error) {
 	}
 	if token[0] == '*'{
 		t.Required = false
+		token = token[1:]
 	}
 	buff := bytes.Buffer{}
 	stat := 0
@@ -308,7 +309,7 @@ func ParseType(token string) (*Type, error) {
 		}
 	}else if token == "any"{
 		t.Type = types.Any
-	}else if ty, err := types.ParsePrimitive(token); err != nil{
+	}else if ty, err := types.ParsePrimitive(token); err == nil{
 		t.Type = ty
 	}else{
 		t.Type = types.Struct

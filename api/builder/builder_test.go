@@ -77,10 +77,11 @@ func TestBuilder_Generate(t *testing.T) {
 	_, err = json.Marshal(s)
 	assert.Equal(t, err, nil)
 
-	builder, err := New(s, interperter.NewZeta(), "F:\\workspace-zeta\\zctl\\api\\sample\\input", "F:\\workspace-zeta\\zctl\\api\\sample\\output")
+	builder, err := New(s, interperter.NewZeta(), "D:\\workspace-zeta\\zctl\\api\\sample\\input", "D:\\workspace-zeta\\zctl\\api\\sample\\output")
 	assert.Equal(t, err, nil)
 
 	err = builder.Generate()
 	fmt.Println(err)
+	t.Log(err)
 	assert.Equal(t, err, nil)
 }

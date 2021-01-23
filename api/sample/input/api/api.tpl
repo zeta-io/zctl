@@ -7,8 +7,8 @@ import (
     {{ end }}
 )
 
-{{ range $key, $value := .schema.Apis }}
-	func {{ $value.Func }}(c *gin.Context, req model.{{ $value.Func }}Req) (model.{{ capitalize $value.Response }}, error){
+{{ range $index, $api := .schema.Apis }}
+	func {{ apiFunc $api }}Api(c *gin.Context, req model.{{ apiFunc $api }}Req) (model.{{ apiResponse $api }}, error){
 	    panic("not implements")
 	}
 {{ end }}

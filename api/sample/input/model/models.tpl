@@ -2,22 +2,22 @@ package model
 
 {{ range $index, $model := .schema.Models }}
 	type {{modelName $model}} struct {
-    {{ range $key, $value := modelFields $model }}
-        {{- $key }} {{ $value}}
+    {{ range $field := modelFields $model }}
+        {{- capitalize $field.Key }} {{ $field.Value }}
     {{ end }}
 	}
 {{ end }}
 
 {{ range $index, $api := .schema.Apis }}
 	type {{ apiFunc $api }}Req struct {
-        {{ range $key, $value := apiQueries $api }}
-            {{- capitalize $key }} {{ $value }} `json:"{{ $key }}" param:"query,{{ $key }}"`
+        {{ range $queries := apiQueries $api }}
+            {{- capitalize $queries.Key }} {{ $queries.Value }} `json:"{{ $queries.Key }}" param:"query,{{ $queries.Key }}"`
         {{ end }}
-        {{ range $key, $value := apiPathVariables $api }}
-            {{- capitalize $key }} {{ $value }} `json:"{{ $key }}" param:"path,{{ $key }}"`
+        {{ range $pathVariables := apiPathVariables $api }}
+            {{- capitalize $pathVariables.Key }} {{ $pathVariables.Value }} `json:"{{ $pathVariables.Key }}" param:"path,{{ $pathVariables.Key }}"`
         {{ end }}
-        {{ if ne $api.Body ""}}
-            Body {{ capitalize apiBody $api }} `param:"body"`
+        {{ if $api.Body}}
+            Body {{ apiBody $api }} `param:"body"`
         {{ end }}
 	}
 {{ end }}
